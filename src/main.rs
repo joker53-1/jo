@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::Read;
 
-use memmap2::Mmap;
+use memmap2::{Mmap, MmapOptions};
 
 fn main() {
     let mut file = File::open("test").unwrap();
