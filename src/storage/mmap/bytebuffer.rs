@@ -1,65 +1,63 @@
 
-
 use super::{mapped_file::MmapT, ByteOperat};
 
-
 pub struct ByteBuffer {
-    pub(crate) mmap_file: MmapT
+    pub(crate) mmap_file: MmapT,
 }
 
 impl ByteBuffer {
-    pub fn new(mmap_file: MmapT) ->Self {
+    pub fn new(mmap_file: MmapT) -> Self {
         Self { mmap_file }
+    }
+
+}
+
+#[inline]
+fn handle_read<T, F>(mmap_file: &MmapT, position: usize, immutable_read: F) -> T
+where
+    F: Fn(&[u8], usize) -> T,
+{
+    match mmap_file {
+        MmapT::Mmap(mm) => immutable_read(mm, position),
+        MmapT::MmapMut(mmt) => immutable_read(&mmt, position),
+    }
+}
+
+#[inline]
+fn handle_write<T, F>(mmap_file: &mut MmapT, position: usize, value: T, mutable_write: F)
+where
+    F: Fn(&mut [u8], usize, T),
+{
+    match mmap_file {
+        MmapT::Mmap(_) => panic!("Unsupport!"),
+        MmapT::MmapMut(mmt) => mutable_write(mmt.as_mut(), position, value),
     }
 }
 
 impl ByteOperat for ByteBuffer {
-    unsafe fn get_byte(&self, position: usize) -> u8 {
-        match &self.mmap_file {
-            MmapT::Mmap(mm) => {
-                mm[position]
-            },
-            MmapT::MmapMut(mmt) => {
-                mmt[position]
-            }
-        }
+    fn get_byte(&self, position: usize) -> u8 {
+        handle_read(&self.mmap_file, position, |mm, position| mm[position])
     }
 
-    unsafe fn put_byte(self, position: usize, value: u8) {
-        match self.mmap_file {
-            MmapT::Mmap(_) => {
-                panic!("Unsupport!");
-            },
-            MmapT::MmapMut(mut mmt) => {
-                mmt[position] = value
-            }
-        }
+    fn put_byte(&mut self, position: usize, value: u8) {
+        handle_write(&mut self.mmap_file, position, value, |mmt, position, value| {
+            mmt[position] = value
+        });
     }
 
-    unsafe fn get_i64(&self, position: usize) -> i64 {
-        match &self.mmap_file {
-            MmapT::Mmap(mm) => {
-                let ptr = mm.as_ptr().add(position) as *const i64;
-                *ptr
-            },
-            MmapT::MmapMut(mmt) => {
-                let ptr = mmt.as_ptr().add(position) as *const i64;
-                *ptr
-            }
-        }
+    fn get_u64(&self, position: usize) -> u64 {
+        let get_fn = |mm: &[u8], position| unsafe {
+            let ptr = mm.as_ptr().add(position) as *const u64;
+            *ptr
+        };
+        handle_read(&self.mmap_file, position, get_fn)
     }
 
-    unsafe fn put_i64(self, position: usize, value: i64) {
-        match self.mmap_file {
-            MmapT::Mmap(_) => {
-                panic!("Unsupport!");
-            },
-            MmapT::MmapMut(mut mmt) => {
-                let ptr = mmt.as_mut_ptr().add(position) as *mut i64;
-                *ptr = value;
-            }
-        }
+    fn put_u64(&mut self, position: usize, value: u64) {
+        let put_fn = |mmt: &mut [u8], position: usize, value: u64| unsafe {
+            let ptr = mmt.as_mut_ptr().add(position) as *mut u64;
+            *ptr = value;
+        };
+        handle_write(&mut self.mmap_file, position, value, put_fn);
     }
-
-    
 }
