@@ -8,7 +8,7 @@ pub struct Bitmap{
 }
 
 impl Bitmap {
-    fn new(batch_bitmap: BatchBitmap) -> Self{
+    pub fn new(batch_bitmap: BatchBitmap) -> Self{
         Bitmap { batch_bitmap, wait_update_idx: usize::MAX, wait_update_u64: 0}
     }
 

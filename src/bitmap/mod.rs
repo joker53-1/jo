@@ -2,6 +2,8 @@ use std::error::Error;
 pub mod batchbitmap;
 pub mod bitmap;
 
+pub use bitmap::*;
+
 pub trait Flushable {
     fn flush(&mut self) -> Result<(), Box<dyn Error>>;
 }
