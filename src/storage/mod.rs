@@ -1,5 +1,5 @@
 
-mod mmap;
+pub mod mmap;
 
 pub use mmap::ByteBufferResource;
 

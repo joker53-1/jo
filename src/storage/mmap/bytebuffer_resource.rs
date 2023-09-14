@@ -1,36 +1,44 @@
-use memmap2::RemapOptions;
-
 use crate::BaseResource;
 
-use super::{bytebuffer::ByteBuffer, mapped_file::MappedFile, MappedResource, MmapT};
+use super::{bytebuffer::ByteBuffer, mapped_file::MappedFile, MappedResource};
 
 pub struct ByteBufferResource {
-    mapped_file: MappedFile,
-    pub(crate) content_buffer: ByteBuffer,
+    pub(crate) mapped_file: MappedFile,
+    pub(crate) content_buffer: Option<ByteBuffer>,
     pub len: usize,
+    is_readonly: bool
 }
 
 impl ByteBufferResource {
     pub fn new(filepath: String, is_readonly: bool) -> Self {
-        let init_len = 4 * 1024 * 1024;
+        // let init_len = 4 * 1024 * 1024;
         let mapped_file = MappedFile::new(filepath);
-        let byte_buffer = mapped_file.map(0, init_len, is_readonly).unwrap();
+        // let byte_buffer = mapped_file.map(0, init_len, is_readonly).unwrap();
         ByteBufferResource {
             mapped_file,
-            content_buffer: byte_buffer,
-            len: init_len,
+            content_buffer: None,
+            len: 0,
+            is_readonly
         }
     }
 
     fn map_content_buffer(&mut self, min_size: usize) {
         if self.len < min_size {
-            match &mut self.content_buffer.mmap_file {
-                MmapT::Mmap(mm) => unsafe { mm.remap(min_size, RemapOptions::new()).unwrap() },
-                MmapT::MmapMut(mmt) => unsafe { mmt.remap(min_size, RemapOptions::new()).unwrap() },
-            }
+
+            self.content_buffer = Some(self.mapped_file.map(0, min_size, self.is_readonly).unwrap());
+                // match &mut self.content_buffer.as_mut().unwrap().mmap_file {
+                //     MmapT::Mmap(mm) => unsafe { mm.remap(min_size, RemapOptions::new()).unwrap() },
+                //     MmapT::MmapMut(mmt) => unsafe { mmt.remap(min_size, RemapOptions::new()).unwrap() },
+                // }
+        
             self.len = min_size;
         }
     }
+
+    pub fn fill(&mut self, pos: usize, size: usize, value: u8){
+        self.content_buffer.as_mut().unwrap().fill(pos, size, value);
+    }
+
 }
 
 impl BaseResource for ByteBufferResource {
@@ -57,18 +65,18 @@ mod test {
 
     #[test]
     fn test_readonly_byte_buffer_resource() {
-        let mut br = ByteBufferResource::new("/tmp/test".to_string(), true);
-        br.map_content();
-        let bf = br.content_buffer;
+        let mut br = ByteBufferResource::new("./test".to_string(), true);
+        br.resize(7);
+        let bf = br.content_buffer.unwrap();
         assert_eq!(156, bf.get_byte(0));
         assert_eq!(6888, bf.get_u64(8));
     }
 
     #[test]
     fn test_byte_buffer_resource() {
-        let mut br = ByteBufferResource::new("/tmp/test".to_string(), false);
-        br.map_content();
-        let mut bf = br.content_buffer;
+        let mut br = ByteBufferResource::new("./test".to_string(), false);
+        br.resize(72);
+        let mut bf = br.content_buffer.unwrap();
         bf.put_byte(0, 156);
         bf.put_u64(8, 6888);
         assert_eq!(156, bf.get_byte(0));

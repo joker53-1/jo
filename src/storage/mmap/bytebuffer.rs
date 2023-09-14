@@ -10,6 +10,12 @@ impl ByteBuffer {
         Self { mmap_file }
     }
 
+    pub fn fill(&mut self, pos: usize, size: usize, value: u8) {
+        match &mut self.mmap_file {
+            MmapT::Mmap(_) => unimplemented!(),
+            MmapT::MmapMut(mmt) => mmt[pos..pos+size].fill(value),
+        }
+    }
 }
 
 #[inline]

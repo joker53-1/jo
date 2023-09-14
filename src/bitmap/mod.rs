@@ -1,15 +1,16 @@
 use std::error::Error;
 pub mod batchbitmap;
+pub mod bitmap;
 
 pub trait Flushable {
-    fn flush() -> Result<(), Box<dyn Error>>;
+    fn flush(&mut self) -> Result<(), Box<dyn Error>>;
 }
-pub trait BatchBitmap: Flushable {
-    fn set(idx: i64, value: i64);
-    fn get(idx: i64) -> i64;
+pub trait BatchBitmapI {
+    fn set(&mut self, idx: usize, value: u64);
+    fn get(&mut self, idx: usize) -> u64;
 }
 
-pub trait Bitmap: Flushable {
-    fn set(idx: i64, value: bool);
-    fn get(idx: i64) -> bool;
+pub trait BitmapI: Flushable {
+    fn set(&mut self, idx: usize, value: bool);
+    fn get(&mut self, idx: usize) -> bool;
 }

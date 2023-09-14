@@ -5,32 +5,35 @@ pub struct SegmentArray {
 }
 
 impl SegmentArray {
-    fn new(buffer: ByteBufferResource) -> Self {
+    pub fn new(buffer: ByteBufferResource) -> Self {
         return Self{ buffer };
     }
 
-    fn get(&mut self, idx: usize) -> SegmentEntry {
-        let pos = idx * 8;
-        if &self.buffer.len - pos < 8 {
+    pub fn get(&mut self, idx: usize) -> SegmentEntry {
+        let pos:i64 = (idx * 8) as i64;
+        if &self.buffer.len.try_into().unwrap() - pos < 8 {
             return SegmentEntry::default();
         }
         let _ = &self.buffer.map_content();
-        let seg = self.buffer.content_buffer.get_u64(pos);
+        let bf = self.buffer.content_buffer.as_ref().unwrap();
+        let seg = bf.get_u64(pos as usize);
         return SegmentEntry {
             offset: seg & 0xFFFF_FFFF_FFFF,
             default_value_count: (seg as usize>> 48) & 0xFF,
         };
     }
 
-    fn set(&mut self, idx: usize, value: SegmentEntry) {
+    pub fn set(&mut self, idx: usize, value: SegmentEntry) {
         let min_capacity = (idx + 1) * 8;
         if self.buffer.len < min_capacity {
+            let old_capacity = self.buffer.len;
             self.buffer.resize(get_next_capacity(min_capacity));
+            self.buffer.fill(old_capacity, min_capacity-old_capacity, u8::MAX);
         }
         let pos = idx * 8;
         let seg = value.offset | (value.default_value_count as u64) << 48;
         let _ = &self.buffer.map_content();
-        self.buffer.content_buffer.put_u64(pos, seg)
+        self.buffer.content_buffer.as_mut().unwrap().put_u64(pos, seg)
     }
 }
 
@@ -43,9 +46,10 @@ fn get_next_capacity(min_capacity: usize) -> usize {
     }
 }
 
-struct SegmentEntry {
-    offset: u64,
-    default_value_count: usize,
+#[derive(Clone)]
+pub struct SegmentEntry {
+    pub offset: u64,
+    pub default_value_count: usize,
 }
 
 impl Default for SegmentEntry {
@@ -72,8 +76,8 @@ mod test {
         assert_eq!(12, segment_entry_array.get(100).offset);
         assert_eq!(12, segment_entry_array.get(100).default_value_count);
 
-        assert_eq!(0, segment_entry_array.get(10).offset);
-        assert_eq!(0, segment_entry_array.get(101).offset);
+        assert_eq!(0xFFFF_FFFF_FFFF, segment_entry_array.get(10).offset);
+        assert_eq!(0xFFFF_FFFF_FFFF, segment_entry_array.get(101).offset);
     }
 
     #[test]
